@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Box, Slider, Typography, Divider, TextField } from '@mui/material'
+import React, { useState, useRef } from 'react'
+import { Box, Button, Slider, Typography, Divider, TextField } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import useSound from 'use-sound'
 import BubbleSound from '../resources/Bubble.wav'
@@ -31,12 +31,34 @@ export function DrumPad(): JSX.Element {
 
     const [volume, setVolume] = useState(0.5)
     const [columns, setColumns] = useState(3)
+    const [isRecording, setIsRecording] = useState(false)
+    const [recordedData, setRecordedData] = useState<Array<{ time: number; sound: string }>>([])
+    const [activePad, setActivePad] = useState<string | null>(null)
+    const startTime = useRef<number | null>(null)
+
+    const soundPlayers = soundOptionLabels.reduce<Record<string, () => void>>((acc, label) => {
+        const [play] = useSound(soundOptions[label], { volume })
+        acc[label] = play
+        return acc
+    }, {})
+
+    const handleRecord = (sound: string): void => {
+        if (isRecording && startTime.current !== null) {
+            const currentTime = Date.now()
+            const time = (currentTime - startTime.current) / 1000
+            setRecordedData((prev) => [...prev, { time, sound }])
+        }
+    }
 
     const createSoundButtons = (): JSX.Element[] => {
         return soundOptionLabels.map((label) => {
-            const [play] = useSound(soundOptions[label], { volume })
             const handleClick = (): void => {
-                play()
+                soundPlayers[label]()
+                handleRecord(label)
+                setActivePad(label)
+                setTimeout(() => {
+                    setActivePad(null)
+                }, 200) // クリック後200msで元に戻す
             }
             return (
                 <Box
@@ -45,19 +67,18 @@ export function DrumPad(): JSX.Element {
                     sx={{
                         width: 100,
                         height: 100,
-                        backgroundColor: theme.palette.primary.main,
+                        backgroundColor:
+                            activePad === label ? theme.palette.secondary.main : theme.palette.primary.main,
                         color: theme.palette.primary.contrastText,
                         display: 'flex',
                         justifyContent: 'center',
                         alignItems: 'center',
                         fontSize: 24,
+                        border: `1px solid ${theme.palette.divider}`,
                         borderRadius: 1,
+                        boxShadow: activePad === label ? theme.shadows[4] : theme.shadows[1],
                         cursor: 'pointer',
-                        transition: 'background-color 0.2s',
-                        '&:hover': {
-                            backgroundColor: theme.palette.primary.dark
-                        },
-                        margin: 1
+                        transition: 'background-color 0.2s, box-shadow 0.2s'
                     }}
                 >
                     {label}
@@ -66,87 +87,97 @@ export function DrumPad(): JSX.Element {
         })
     }
 
+    const handleStartRecording = (): void => {
+        setIsRecording(true)
+        startTime.current = Date.now()
+        setRecordedData([])
+    }
+
+    const handleStopRecording = (): void => {
+        setIsRecording(false)
+        startTime.current = null
+    }
+
+    const generateMML = (): string => {
+        return recordedData.map((record) => `t${record.time} ${record.sound}`).join(' ')
+    }
+
+    const handlePlay = (): void => {
+        if (recordedData.length === 0) return
+
+        const startTime = Date.now()
+
+        recordedData.forEach(({ time, sound }) => {
+            const delay = (time - (Date.now() - startTime) / 1000) * 1000
+            setTimeout(() => {
+                soundPlayers[sound]()
+                setActivePad(sound)
+                setTimeout(() => {
+                    setActivePad(null)
+                }, 200) // 再生後200msで元に戻す
+            }, delay)
+        })
+    }
+
     return (
         <Box
             sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 1,
-                padding: '20px',
-                background: theme.palette.background.paper,
-                minHeight: '100%',
+                gap: 2,
+                padding: 2,
+                backgroundColor: theme.palette.background.paper,
+                borderRadius: 1,
+                boxShadow: theme.shadows[3],
+                minHeight: '100vh',
                 overflowY: 'scroll'
             }}
         >
-            <Typography variant="h2" gutterBottom>
-                Sound Test Pad
+            <Typography variant="h4" gutterBottom>
+                Drum Pad
             </Typography>
-            <Divider sx={{ width: '100%', marginBottom: 2 }} />
-            <Box
-                sx={{
-                    display: 'flex',
-                    gap: 4,
-                    alignItems: 'center',
-                    marginBottom: 2
+            <Slider
+                value={volume}
+                onChange={(e, newValue) => {
+                    setVolume(newValue as number)
                 }}
-            >
-                <Box
-                    sx={{
-                        display: 'flex',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 2
-                    }}
-                >
-                    <Typography variant="h4" gutterBottom>
-                        Volume
-                    </Typography>
-                    <Slider
-                        aria-label="Volume"
-                        value={volume}
-                        onChange={(_, value) => {
-                            setVolume(value as number)
-                        }}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        sx={{ width: '150px' }}
-                    />
-                </Box>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 2
-                    }}
-                >
-                    <Typography variant="h4" gutterBottom>
-                        Columns
-                    </Typography>
-                    <TextField
-                        type="number"
-                        value={columns}
-                        onChange={(e) => {
-                            setColumns(parseInt(e.target.value, 10))
-                        }}
-                        inputProps={{ min: 1 }}
-                        sx={{ width: '80px' }}
-                    />
-                </Box>
-            </Box>
-            <Box
-                sx={{
-                    display: 'grid',
-                    gap: '10px',
-                    gridTemplateColumns: `repeat(${columns}, 100px)`,
-                    justifyContent: 'center'
-                }}
-            >
+                aria-labelledby="volume-slider"
+                min={0}
+                max={1}
+                step={0.01}
+                valueLabelDisplay="auto"
+                sx={{ marginBottom: 2 }}
+            />
+            <Divider sx={{ marginY: 2 }} />
+            <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 2 }}>
                 {createSoundButtons()}
+            </Box>
+            <TextField
+                label="Columns"
+                type="number"
+                value={columns}
+                onChange={(e) => {
+                    setColumns(parseInt(e.target.value, 10))
+                }}
+                sx={{ marginTop: 2 }}
+                inputProps={{ min: 1, max: 5 }}
+            />
+            <Box sx={{ marginTop: 2, display: 'flex', gap: 2 }}>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={isRecording ? handleStopRecording : handleStartRecording}
+                >
+                    {isRecording ? 'Stop Recording' : 'Start Recording'}
+                </Button>
+                <Button variant="contained" color="secondary" onClick={handlePlay}>
+                    Play Recording
+                </Button>
+            </Box>
+            <Box sx={{ marginTop: 2 }}>
+                <Typography variant="body1">MML Output:</Typography>
+                <TextField value={generateMML()} multiline rows={4} fullWidth variant="outlined" />
             </Box>
         </Box>
     )
 }
-
-export default DrumPad
