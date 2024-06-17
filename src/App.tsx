@@ -17,6 +17,7 @@ import {
     ListPage,
     Devtool
 } from './pages'
+import { DrumPad } from './toys/DrumPad'
 
 import useSound from 'use-sound'
 import { MobileMenu } from './components/Menu/MobileMenu'
@@ -368,6 +369,7 @@ function App(): JSX.Element {
                                 <Route path="/settings/*" element={<Settings />} />
                                 <Route path="/devtool" element={<Devtool />} />
                                 <Route path="/subscriptions" element={<ManageSubsPage />} />
+                                <Route path="/toys/drumpad" element={<DrumPad />} />
                             </Routes>
                         </Paper>
                         <Box

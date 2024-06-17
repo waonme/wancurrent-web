@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import useSound from 'use-sound'
 import { useState } from 'react'
 import { UseSoundFormats } from '../../constants'
+import { Link } from 'react-router-dom'
 
 import BubbleSound from '../../resources/Bubble.wav'
 import NotificationSound from '../../resources/Notification.wav'
@@ -144,6 +145,9 @@ export const SoundSettings = (): JSX.Element => {
                 }}
             >
                 reset
+            </Button>
+            <Button component={Link} to="/toys/drumpad" variant="outlined">
+                Go to Drum Pad
             </Button>
         </Box>
     )
